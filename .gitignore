@@ -1,5 +1,35 @@
 # Ignore Gradle project-specific cache directory
-.gradle
+**/.gradle
 
 # Ignore Gradle build output directory
-build
+**/build
+ 
+ # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# testing
+**/coverage 
+
+# misc
+client/.DS_Store
+client/.env.local
+client/.env.development.local
+client/.env.test.local
+client/.env.production.local
+
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+
+**/package-lock.json
+
+# IDE
+**/.idea
+**/.vscode
+
+# Generated files
+app/src/main/resources/static

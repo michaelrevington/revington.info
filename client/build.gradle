@@ -1,0 +1,145 @@
+import info.revington.LogWindow;
+
+tasks.register('findNpm')
+tasks.register('install')
+tasks.register('build')
+tasks.register('proxy')
+tasks.register('bootRun')
+
+findNpm {
+    group 'build'
+    description 'find npm executable'
+
+    doFirst {
+        def NPM_PATH_VAR = "NPM_PATH";
+        def noNpmFound = "Please define ${NPM_PATH_VAR} in 'gradle.properties'."
+
+        if (!project.hasProperty("NPM_PATH")) {
+            def command = "";
+
+            def os = System.getProperty("os.name").toLowerCase();
+
+            if (os.contains("windows")) {
+                command = "where"
+            } else if (os.contains("linux")) {
+                command = "which"
+            } else throw new Exception(noNpmFound);
+
+            command = "${command} npm"
+            def process = command.execute()
+
+            Appendable appendable = new StringBuilder();
+            process.waitForProcessOutput(appendable, System.err);
+
+            def output = appendable.toString();
+            def executablePaths = output.split("\n");
+            if (output == null || output.equals("") || executablePaths.length < 1)
+                throw new Exception(noNpmFound);
+
+            def npmPath = executablePaths[executablePaths.length - 1]
+
+            Properties props = new Properties();
+
+            def propFile = file("${rootDir.toString()}\\gradle.properties")
+            if (!propFile.exists())
+                propFile.createNewFile()
+
+            propFile.withInputStream {props.load(it)}
+            props.setProperty(NPM_PATH_VAR, npmPath);
+
+            propFile.withOutputStream {props.store(it, null)}
+        }
+    }
+}
+
+install {
+    group 'node'
+    description 'Install node dependencies'
+
+    dependsOn 'findNpm'
+
+    doFirst {
+        def command = "${NPM_PATH} install --prefix ./${CLIENT_DIR}"
+
+        def process = command.execute()
+
+        process.waitForProcessOutput(System.out, System.err)
+    }
+}
+
+build {
+    dependsOn 'findNpm', 'install'
+
+    doFirst {
+        def command = "${NPM_PATH} run build --prefix .\\${CLIENT_DIR}"
+
+        def process = command.execute()
+
+        process.waitForProcessOutput(System.out, System.err)
+    }
+
+    doLast {
+        def staticDir = file("${rootDir.toString()}\\${APP_DIR}\\src\\main\\resources\\static")
+
+        if (!staticDir.exists())
+            staticDir.mkdir()
+
+        copy {
+            from "${rootDir.toString()}\\${CLIENT_DIR}\\build"
+            into staticDir.getAbsolutePath()
+        }
+    }
+}
+
+proxy {
+    group 'Node'
+    description 'Start proxy server'
+
+    dependsOn 'findNpm'
+
+    doFirst {
+        if (project.hasProperty("SPRING_PORT")) {
+            def appProps = file("${rootDir}\\${APP_DIR}\\src\\main\\resources\\application.properties")
+            if (!appProps.exists())
+                appProps.createNewFile()
+
+            Properties props = new Properties();
+            appProps.withInputStream {props.load(it)}
+
+            props.put("server.port", String.valueOf(SPRING_PORT))
+
+            appProps.withOutputStream {props.store(it, null)}
+        }
+
+        Thread th = new Thread(() -> {
+            def command = "${NPM_PATH} run proxy --prefix ./${CLIENT_DIR} ${SPRING_PORT} ${REACT_PORT} ${PROXY_PORT}"
+
+            def process = command.execute()
+
+            new LogWindow(process, 675, 50)
+        })
+        th.setDaemon(true)
+
+        th.start()
+    }
+}
+
+bootRun {
+    dependsOn 'proxy'
+
+    doFirst {
+        Thread th = new Thread(() -> {
+            ProcessBuilder processBuilder = new ProcessBuilder(NPM_PATH, "start", "--prefix=./${CLIENT_DIR}")
+            processBuilder.environment().put("PORT", String.valueOf(REACT_PORT))
+
+            def process = processBuilder.start()
+
+            new LogWindow(process, 50, 50)
+        })
+        th.setDaemon(true)
+        th.join()
+
+        th.start()
+    }
+}
+
