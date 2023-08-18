@@ -35,7 +35,6 @@ class LogWindow extends JFrame {
         this.process = process;
 
         init()
-        process.waitForProcessOutput(outputStream, outputStream)
     }
 
     public LogWindow(Process process, int x, int y) {
@@ -43,7 +42,6 @@ class LogWindow extends JFrame {
         this.setLocation(x, y)
 
         init()
-        process.waitForProcessOutput(outputStream, outputStream)
     }
 
     private destroyProcess(ProcessHandle processHandle) {
@@ -51,6 +49,7 @@ class LogWindow extends JFrame {
             destroyProcess(it)
         }
 
+        outputStream.close()
         processHandle.destroyForcibly()
     }
 
@@ -65,9 +64,13 @@ class LogWindow extends JFrame {
     private void init() {
         createWindow()
 
-        this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE)
+        this.setDefaultCloseOperation(DISPOSE_ON_CLOSE)
         this.setSize(600, 400)
         this.setVisible(true)
+
+        process.waitForProcessOutput(outputStream, outputStream)
+
+        this.dispose()
     }
 
     private void createWindow() {
@@ -81,7 +84,7 @@ class LogWindow extends JFrame {
         JScrollPane panel = new JScrollPane(area)
 
         new Thread(() -> {
-            while (true) {
+            while (this.process.isAlive()) {
                 synchronized (outputStream){
                     area.append(outputStream.read())
                 }

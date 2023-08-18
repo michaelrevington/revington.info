@@ -46,3 +46,4 @@ app.listen(process.argv[4] || 3000);
 
 console.log(`Proxy server started at port ${process.argv[4] || 3000}`)
 open(`http://localhost:${process.argv[4] || 3000}`)
+

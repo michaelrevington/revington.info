@@ -59,11 +59,13 @@ install {
     dependsOn 'findNpm'
 
     doFirst {
-        def command = "${NPM_PATH} install --prefix ./${CLIENT_DIR}"
+        ProcessBuilder processBuilder = new ProcessBuilder(NPM_PATH, "install").directory(file("./"))
 
-        def process = command.execute()
+        def process = processBuilder.start()
 
         process.waitForProcessOutput(System.out, System.err)
+        if (process.exitValue() < 0)
+            throw new RuntimeException("Installation failed.")
     }
 }
 
@@ -71,7 +73,7 @@ build {
     dependsOn 'findNpm', 'install'
 
     doFirst {
-        def command = "${NPM_PATH} run build --prefix .\\${CLIENT_DIR}"
+        def command = "${NPM_PATH} run build --prefix ./${CLIENT_DIR}"
 
         def process = command.execute()
 
@@ -80,13 +82,24 @@ build {
 
     doLast {
         def staticDir = file("${rootDir.toString()}\\${APP_DIR}\\src\\main\\resources\\static")
+        def templateDir = file("${rootDir.toString()}\\${APP_DIR}\\src\\main\\resources\\static")
 
         if (!staticDir.exists())
             staticDir.mkdir()
 
+        if (!templateDir.exists())
+            templateDir.createNewFile()
+
         copy {
             from "${rootDir.toString()}\\${CLIENT_DIR}\\build"
+            exclude 'index.html'
             into staticDir.getAbsolutePath()
+        }
+
+        copy {
+            from "${rootDir.toString()}\\${CLIENT_DIR}\\build"
+            include 'index.html'
+            into templateDir.getAbsolutePath()
         }
     }
 }
@@ -129,7 +142,7 @@ bootRun {
 
     doFirst {
         Thread th = new Thread(() -> {
-            ProcessBuilder processBuilder = new ProcessBuilder(NPM_PATH, "start", "--prefix=./${CLIENT_DIR}")
+            ProcessBuilder processBuilder = new ProcessBuilder(NPM_PATH, "start")
             processBuilder.environment().put("PORT", String.valueOf(REACT_PORT))
 
             def process = processBuilder.start()

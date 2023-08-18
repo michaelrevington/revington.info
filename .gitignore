@@ -33,3 +33,4 @@ client/yarn-error.log*
 
 # Generated files
 app/src/main/resources/static
+app/src/main/resources/templates/index.html
